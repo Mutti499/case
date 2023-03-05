@@ -14,14 +14,14 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: true
   },
-  addresses: [{
+  adresses: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Adress'
   }],
-  subscriptions: [{
+  subscription: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Subscription'
-  }], // User can have more than  one subscription plan 
+  },
   orders: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Order'

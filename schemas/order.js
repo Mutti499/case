@@ -10,11 +10,11 @@ const orderSchema = new mongoose.Schema({
     enum: ['Pending', 'Paid', 'Cancelled'],
     default: 'Pending'
   },
-  subscription: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Subscription',
-    required: true
-  },
+  // subscription: {
+  //   type: mongoose.Schema.Types.ObjectId,
+  //   ref: 'Subscription',
+  //   required: true
+  // },
   user: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
@@ -25,17 +25,14 @@ const orderSchema = new mongoose.Schema({
     ref: 'Adress',
     required: true
   },
-  paymentIntentId: {
-    type: String
-  },
+  // paymentIntentId: {
+  //   type: String
+  // },
   createdAt: {
     type: Date,
     default: Date.now
   },
   paymentMethod: {
-    type: String
-  },
-  currency: {
     type: String
   },
   receiptUrl: {
