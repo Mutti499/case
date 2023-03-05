@@ -1,31 +1,31 @@
 const mongoose = require('mongoose');
 
 const subscriptionSchema = new mongoose.Schema({
-  type: {
+  options: {
     type: String,
-    enum: ['threeMonth','oneMonth', 'Default'],
-    default: 'Default'
+    enum: ['threeMonth','oneMonth', 'onYear'],
+    required : true
   },
-  // name: {
-  //   type: String,
-  //   required: true
-  // },
-  price: {
+  amount: {
     type: Number,
     required: true
   },
+  price: {
+    type: Number,
+  },
   startDate: {
     type: Date,
-    required: true
   },
   endDate: {
     type: Date,
-    required: true
   },
   user: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: true
+  },
+  isActive: {
+    type: Boolean,
+    default: true
   }
 });
 

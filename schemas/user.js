@@ -14,10 +14,14 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: true
   },
-  adresses: [{
+  addresses: [{
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Adress'
+    ref: 'Address'
   }],
+  defaultAddress: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Address'
+  },
   subscription: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Subscription'
