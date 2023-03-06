@@ -46,7 +46,7 @@ const createMonthlyOrder = async (user, subscription) => {
 
 
   const order = new Order({
-    amount: subscription.amount,
+    amount: subscription.amount,//This is quantity of the product
     user,
     price: subscription.price,
     address: user.defaultAddress,
@@ -54,6 +54,7 @@ const createMonthlyOrder = async (user, subscription) => {
     subscription,
     receiptUrl: stripeInvoice.invoice_pdf,
   })
+  order.products.push(subscription.product);
   await order.save();
 }
 

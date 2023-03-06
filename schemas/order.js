@@ -40,6 +40,10 @@ const orderSchema = new mongoose.Schema({
   receiptUrl: {
     type: String
   },
+  products: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Product'
+  }],
 });
 
 const Order = mongoose.model('Order', orderSchema);

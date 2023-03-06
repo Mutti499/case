@@ -32,7 +32,11 @@ const subscriptionSchema = new mongoose.Schema({
   },
   stripeSubscriptionId: {
     type: String 
-  }
+  },
+  product: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Product'
+  },
 });
 
 const Subscription = mongoose.model('Subscription', subscriptionSchema);

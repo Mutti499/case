@@ -3,6 +3,7 @@ const router = express.Router();
 const User = require('../schemas/user');
 const Address = require('../schemas/address');
 const Order = require('../schemas/order');
+const Product = require('../schemas/product');
 const Subscription = require('../schemas/subscription');
 const stripe = require('stripe')(process.env.STRIPE_KEY);
 
@@ -108,88 +109,109 @@ router.post('/:id/newAddress', async (req, res) => {
 
 router.post('/:id/newOrder', async (req, res) => {
   try {
-    const user = await User.findById(req.params.id)
+       const user = await User.findById(req.params.id)
 
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
+       if (!user) {
+         return res.status(404).json({ error: 'User not found' });
+       }
+     
+       //Body have IDs for every product and amount for that product 
+       //if type is chosen subscription than there is option selection for subscription product.options = "oneYear".
+       // if type is chosen oneTime  than product.options = noSub
+     
+       // product1 = new Product("A", 20 , "Lorem Ipsum", "nophoto", "oneTime", "noSub" )
+       // product2 = new Product("B", 15 , "Lorem Ipsum", "nophoto", "Subscription", "oneMonth" )
+       // product3 = new Product("C", 40 , "Lorem Ipsum", "nophoto", "oneTime", "noSub" )
+       // product4 = new Product("D", 30 , "Lorem Ipsum", "nophoto", "Subscription", "threeMonth" )
+       // product5 = new Product("E", 25 , "Lorem Ipsum", "nophoto", "Subscription", "onYear" )
+     
+      const productID = req.body.productID 
+      const product = await Product.findById(productID)
 
-    //Body have objects for every product { [{product1 : oneTime },{product2 : oneTime} ]}
-    //if type is chosen subscription than there is option selection for subscription LIKE product.options = "oneYear".
-    // if type is chosen oneTime  than product.options = null
-    for (const product of req.body.products) {
+      if(!product){
+        return res.status(404).json({ error: 'Product not found' });
+      }
       const { paymentType } = product; //oneTime or Subscription
 
       if( paymentType == 'oneTime' ){
-        const { amount } = product;
+        const amount  = req.body.amount;
 
         const order = new Order({
-          amount: product.amount,
+          amount,//Quantity
           price: product.price,
           user,
           address: user.defaultAddress,
-          paymentType
+          paymentType,
         })
-        //you can create and add receiptUrl
+        order.receiptUrl = "https://website.com/receipts/" + order._id + ".pdf"
+        order.products.push(product);
         await order.save();
 
       }
-      else if( paymentType == 'Subscription' ){
-        const { options, amount , normalPrice } = product
 
-        let price, endDate;
+      else if( paymentType == 'Subscription' ){
+        const { options , price } = product
+        const amount  = req.body.amount;
+
+        let newPrice, endDate;
         let startDate = new Date();
 
 
         switch( options ) {
           case 'oneMonth':
-            price = normalPrice * 95 / 100;
+            newPrice = price * 95 / 100;
             endDate = new Date(startDate.getFullYear(), startDate.getMonth() + 1, startDate.getDate()); // set end date to 1 month from now
             break;
           case 'threeMonth':
-            price = normalPrice * 85 / 100;
+            newPrice = price * 85 / 100;
             endDate = new Date(startDate.getFullYear(), startDate.getMonth() + 3, startDate.getDate()); // set end date to 3 months from now
             break;
           case 'oneYear':
-            price = normalPrice * 75 / 100;
+            newPrice = price * 75 / 100;
             endDate = new Date(startDate.getFullYear() + 1, startDate.getMonth(), startDate.getDate()); // set end date to 1 year from now
             break;
           default:
             return res.status(404).json({ error: "Invalid subscription plan: must be oneMonth, threeMonth, or oneYear" });
         }
-      
+        
+        // Create a new price object in Stripe
+        const stripePrice = await stripe.prices.create({
+          unit_amount: newPrice * 100, // price in cents
+          currency: 'usd',
+        });
 
         // Create a subscription object on Stripe
         const stripeSubscription = await stripe.subscriptions.create({
           customer: user.stripeCustomerId,
-          items: [{ price: price * 100, price_data: { currency: 'usd' } }]
+          items: [{ price: stripePrice.id, price_data: { currency: 'usd' } }]
         });
 
 
         const subscription = new Subscription({
           options, 
           amount,
-          price,
+          price: newPrice,
           startDate,
           endDate,
           user: user._id,
           stripeSubscriptionId: stripeSubscription.id,
+          product
         });
         await subscription.save();
 
         const order = new Order({
           amount,
-          price,
+          price: newPrice,
           user,
           address: user.defaultAddress,
           paymentType
         })
-        order.subscription = subscription._id;
-
-        //you can create and add receiptUrl
+        order.products.push(product);
+        order.subscription = subscription._id;// First order is being sent for the subscription
+        order.receiptUrl = "https://website.com/receipts/" + order._id + ".pdf"
         await order.save();
 
-      }
+      
     }
   } catch (error) {
     console.error(error);
@@ -198,7 +220,50 @@ router.post('/:id/newOrder', async (req, res) => {
 })
 
 
+// cancel a subscription
+router.post('/:id/cancelSubscription', async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id).populate('subscription');
 
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (!user.subscription) {
+      // user does not have an active subscription
+
+      return res.status(404).json({ error: 'User dont have subscription' });
+    }
+
+    const subscription = await Subscription.findById(user.subscription.subscriptionId);
+
+    if (!subscription) {
+      return res.status(404).json({ error: 'Subscription not found' });
+    }
+
+    // cancel the subscription on Stripe
+    await stripe.subscriptions.del(subscription.stripeSubscriptionId);
+
+    // set the subscription to inactive
+    subscription.isActive = false;
+    await subscription.save();
+
+    return res.json({ message: 'Subscription cancelled successfully' });
+
+  } catch (error) {
+    console.error(error);
+    res.status(400).json({ error: error.message });
+  }
+})
+
+
+//Create products case
+
+// const product1 = new Product("A", 20 , "Lorem Ipsum", "nophoto", "oneTime", "noSub" )
+// const product2 = new Product("B", 15 , "Lorem Ipsum", "nophoto", "Subscription", "oneMonth" )
+// const product3 = new Product("C", 40 , "Lorem Ipsum", "nophoto", "oneTime", "noSub" )
+// const product4 = new Product("D", 30 , "Lorem Ipsum", "nophoto", "Subscription", "threeMonth" )
+// const product5 = new Product("E", 25 , "Lorem Ipsum", "nophoto", "Subscription", "onYear" )
 
 
 
