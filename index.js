@@ -37,13 +37,22 @@ app.use('/api', userRouter);
 
 // create a new order with Subscription payment type
 const createMonthlyOrder = async (user, subscription) => {
+
+  const stripeSubscription = await stripe.subscriptions.retrieve(subscription.stripeSubscriptionId);
+  const stripeInvoice = await stripe.invoices.create({
+    customer: user.stripeCustomerId,
+    subscription: stripeSubscription.id
+  });
+
+
   const order = new Order({
     amount: subscription.amount,
     user,
     price: subscription.price,
     address: user.defaultAddress,
     paymentType: 'Subscription',
-    subscription
+    subscription,
+    receiptUrl: stripeInvoice.invoice_pdf,
   })
   await order.save();
 }
@@ -73,25 +82,6 @@ cron.schedule('0 0 1 * *', async () => {
     });
 
     if (!lastOrder) {
-    //         // create a new Stripe subscription
-    //   const stripeSubscription = await stripe.subscriptions.create({
-    //     customer: user.stripeCustomerId,
-    //     items: [{ price: subscription.price * 100, price_data: { currency: 'usd' } }]
-    //   });
-
-    //   // create a new subscription document in the database
-    //   const newSubscription = new Subscription({
-    //     options: subscription.options,
-    //     amount: subscription.amount,
-    //     price: subscription.price,
-    //     startDate: subscription.startDate,
-    //     endDate: subscription.endDate,
-    //     user: subscription.user,
-    //     stripeSubscriptionId: stripeSubscription.id,
-    //     isActive: true
-    //   });
-    //   await newSubscription.save();
-
       await createMonthlyOrder(user, subscription);
     }
   }
