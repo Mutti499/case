@@ -3,7 +3,12 @@ const app = express();
 const mongoose = require('mongoose');
 const dotenv = require('dotenv');
 const bodyParser = require('body-parser');
+const cors = require('cors');
+
 const cron = require('node-cron');
+const stripe = require('stripe')(process.env.STRIPE_KEY);
+
+
 
 const User = require('./schemas/user');
 const Address = require('./schemas/address');
@@ -23,6 +28,7 @@ mongoose.connection.once("open", ()=>{console.log("Databese Connected")})
 
 app.use(express.json());
 app.use(express.urlencoded({extended:true}));
+app.use(cors());
 
 
 app.use('/api', userRouter);
@@ -31,9 +37,17 @@ app.use('/api', userRouter);
 
 // create a new order with Subscription payment type
 const createMonthlyOrder = async (user, subscription) => {
-  const order = new Order(subscription.amount, user, user.defaultAddress, 'Subscription', subscription);
+  const order = new Order({
+    amount: subscription.amount,
+    user,
+    price: subscription.price,
+    address: user.defaultAddress,
+    paymentType: 'Subscription',
+    subscription
+  })
   await order.save();
 }
+
 
 // set up cron job to create a new order every month
 cron.schedule('0 0 1 * *', async () => {
@@ -59,6 +73,25 @@ cron.schedule('0 0 1 * *', async () => {
     });
 
     if (!lastOrder) {
+    //         // create a new Stripe subscription
+    //   const stripeSubscription = await stripe.subscriptions.create({
+    //     customer: user.stripeCustomerId,
+    //     items: [{ price: subscription.price * 100, price_data: { currency: 'usd' } }]
+    //   });
+
+    //   // create a new subscription document in the database
+    //   const newSubscription = new Subscription({
+    //     options: subscription.options,
+    //     amount: subscription.amount,
+    //     price: subscription.price,
+    //     startDate: subscription.startDate,
+    //     endDate: subscription.endDate,
+    //     user: subscription.user,
+    //     stripeSubscriptionId: stripeSubscription.id,
+    //     isActive: true
+    //   });
+    //   await newSubscription.save();
+
       await createMonthlyOrder(user, subscription);
     }
   }
